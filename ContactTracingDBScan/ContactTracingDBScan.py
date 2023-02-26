@@ -1,3 +1,5 @@
+from datetime import datetime
+import time
 import tkinter.messagebox
 from tkinter import *
 from tkinter import ttk
@@ -11,7 +13,8 @@ from sklearn.cluster import DBSCAN
 import mysql.connector
 from mysql.connector import Error
 import calendar
-
+import serial
+import schedule
 
 root = Tk()
 root.title("Contact Tracing")
@@ -19,6 +22,14 @@ root.resizable(False, False)
 root.geometry("1000x550")
 
 global is_header
+global is_home
+global rfid_code
+global temp
+global arport
+arport = "COM5"
+temp = ""
+rfid_code = ""
+is_home = False
 is_header = False
 
 # creating widgets
@@ -40,6 +51,24 @@ myLabel = Label(root, text='BISU\nContact Tracing', font=('Times', 24))  # for t
 
 # grouplabel = Label(root, text='Group 8', font = ('Times',16)) #for text
 
+def sql_connection():
+    global cursor
+    global connection
+    try:
+        connection = mysql.connector.connect(host='localhost',
+                                             database='contact_tracer',
+                                             user='root',
+                                             password='password',
+                                             port='3306')
+        if connection.is_connected():
+            db_Info = connection.get_server_info()
+            cursor = connection.cursor()
+            cursor.execute("select database();")
+            record = cursor.fetchone()
+
+    except Error as e:
+        print("Error while connecting to MySQL", e)
+
 def header():
     global header_logo
     header_logo = ImageTk.PhotoImage(Image.open("logonobg.png"))  # for images
@@ -55,12 +84,18 @@ def header():
     separator.place(relx=0, rely=0.22, relwidth=1, relheight=1)
 
 def start_program():
+    global rfid
+    global rfid_code
+    global scan_button
+    global is_home
     global rfid_pic
     global start_label
     global rfid_image_label
     global contact_tracing_Button
     global from_trace
     global is_header
+    global temp
+    temp = ""
     if not is_header:
         header()
         is_header = True
@@ -78,6 +113,55 @@ def start_program():
                                     command=clear_start_contact_tracing)
     contact_tracing_Button.place(x=750, y=465)
 
+    scan_button = Button(root, text="Scan", padx=10, pady=10, font=('Times', 24),
+                                    command=scan_id)
+    scan_button.place(x=0, y=465)
+
+def scan_id():
+    global rfid_code
+    try:
+        arduino = serial.Serial(arport, timeout=5)
+        print("Connected")
+    except:
+        print("Please Check Port")
+
+    arduino.baudrate = 9600
+    arduino.port = arport
+    i = 0
+    while i < 3:
+        counter = 0
+        while True:
+            sent = arduino.write(b'B')
+            packet = arduino.readline()
+            rfid_code = packet.decode('utf-8')
+            if len(rfid_code) > 3:
+                break
+            if counter == 2:
+                break
+            counter += 1
+
+        if len(rfid_code) > 3:
+            break
+
+        if counter == 2:
+            break
+        i+=1
+
+        if len(rfid_code) > 3:
+            break
+
+    if (rfid_code != None and len(rfid_code) > 3):
+        print(rfid_code)
+        sql_connection()
+        cursor.execute(
+            "SELECT * from users where rfid='"+rfid_code+"'")
+        result = cursor.fetchall()
+
+        if len(result) >= 1:
+            clear_start_show_details()
+        else:
+            clear_start_register()
+
 def clear_front_page():
     startButton.destroy()
     myLabel.destroy()
@@ -86,25 +170,35 @@ def clear_front_page():
     start_program()
 
 def clear_start_contact_tracing():
+    is_home = False
     start_label.destroy()
+    scan_button.destroy()
     rfid_image_label.destroy()
     contact_tracing_Button.destroy()
     contact_tracing()
 
 def clear_start_register():
+    global is_home
+    is_home = False
     start_label.destroy()
     rfid_image_label.destroy()
     contact_tracing_Button.destroy()
+    scan_button.destroy()
     register()
     # show_details()
 
 def clear_start_show_details():
+    global is_home
+    is_home = False
     start_label.destroy()
     rfid_image_label.destroy()
     contact_tracing_Button.destroy()
+    scan_button.destroy()
     show_details()
 
 def clear_contact_tracing():
+    global is_home
+    is_home = False
     name_label.destroy()
     name_entry.destroy()
     date_label.destroy()
@@ -215,24 +309,6 @@ def contact_tracing():
     back_button1.place(x=895, y=480)
 
     Label(myframe, text="No One").pack()
-
-def sql_connection():
-    global cursor
-    global connection
-    try:
-        connection = mysql.connector.connect(host='localhost',
-                                             database='contact_tracer',
-                                             user='root',
-                                             password='password',
-                                             port='3307')
-        if connection.is_connected():
-            db_Info = connection.get_server_info()
-            cursor = connection.cursor()
-            cursor.execute("select database();")
-            record = cursor.fetchone()
-
-    except Error as e:
-        print("Error while connecting to MySQL", e)
 
 def trace():
     trace_button.destroy()
@@ -363,7 +439,7 @@ def click_name(text):
     clicked_course_text = df[df['name'] == text]['course'].item()
     clicked_address_text = df[df['name'] == text]['address'].item()
 
-    print(clicked_address_text + " " + clicked_name_text + " " + clicked_course_text + " " + clicked_rfid_text)
+    # print(clicked_address_text + " " + clicked_name_text + " " + clicked_course_text + " " + clicked_rfid_text)
 
     clicked_rfid = Image.open("user.jpg")
     clicked_rfid_resized = clicked_rfid.resize((300, 300))
@@ -412,6 +488,7 @@ def register():
     global enter_course_label
     global enter_address_label
     global register_button
+    global rfid_code
 
     filename = ""
     traced_label = Label(root, text="Register", font=('Times', 24))
@@ -437,7 +514,7 @@ def upload_photo():
     global img
     global filename
     global b2
-    f_types = [('Jpg Files', '*.jpg')]
+    f_types = [('Jpg Files', '*.jpg'),('Jpeg Files', '*.jpeg'),('Png Files', '*.png')]
     filename = filedialog.askopenfilename(filetypes=f_types)
     if filename:
         upload_image = Image.open(filename)
@@ -453,6 +530,8 @@ def convertToBinaryData(filename):
     return binaryData
 
 def register_details():
+    global rfid_code
+
     if enter_name_entry.get() == "" or enter_course_entry.get() == "" or enter_address_entry.get() == "":
         messagebox.showwarning('Error', 'Error: Please Fill up Data!')
     else:
@@ -463,7 +542,7 @@ def register_details():
                 file = convertToBinaryData(filename)
                 sql_connection()
                 sql = "INSERT INTO users (rfid, name, course, address, image) VALUES (%s, %s, %s, %s, %s)"
-                val = ("00123", enter_name_entry.get(), enter_course_entry.get(), enter_address_entry.get(), file)
+                val = (rfid_code, enter_name_entry.get(), enter_course_entry.get(), enter_address_entry.get(), file)
                 result = cursor.execute(sql, val)
                 connection.commit()
                 tkinter.messagebox.showinfo(title="Success!", message="Image and data successfully inserted!")
@@ -508,6 +587,7 @@ def clear_show_details():
     detail_room_label.destroy()
     detail_room_entry.destroy()
     save_button.destroy()
+    scan_temp_button.destroy()
     start_program()
 
 def save_details():
@@ -521,6 +601,8 @@ def save_details():
             result = cursor.execute(sql, val)
             connection.commit()
             tkinter.messagebox.showinfo(title="Success!", message="Image and data successfully inserted!")
+            temp = ""
+            rfid_code = ""
 
         except mysql.connector.Error as error:
             tkinter.messagebox.showerror(title="Success!", message="Image and data successfully inserted!")
@@ -537,6 +619,7 @@ def convert_data(data, filename):
         file.write(data)
 
 def show_details():
+    global rfid_code
     global image
     global image_label
     global name_text
@@ -561,11 +644,16 @@ def show_details():
     global detail_room_entry
     global save_button
     global epoch
+    global temp
+    global scan_temp_button
+
     currentDateAndTime = datetime.now()
     t = datetime(currentDateAndTime.year, currentDateAndTime.month, currentDateAndTime.day, currentDateAndTime.hour,
                  currentDateAndTime.minute, currentDateAndTime.second)
     epoch = calendar.timegm(t.timetuple())
     currentTime = currentDateAndTime.strftime("%H:%M:%S")
+
+    now = datetime.now()
 
     sql_connection()
 
@@ -584,9 +672,9 @@ def show_details():
     columns = ["id", "rfid", "name", "course", "address","image"]
     df = pd.DataFrame(from_db, columns=columns)
 
-    name_text = df[df['rfid'] == "00123"]['name'].item()
-    course_text = df[df['rfid'] == "00123"]['course'].item()
-    address_text = df[df['rfid'] == "00123"]['address'].item()
+    name_text = df[df['rfid'] == rfid_code]['name'].item()
+    course_text = df[df['rfid'] == rfid_code]['course'].item()
+    address_text = df[df['rfid'] == rfid_code]['address'].item()
 
     rfid = Image.open("user.jpg")
     rfid_resized = rfid.resize((300, 300))
@@ -594,11 +682,11 @@ def show_details():
     image_label = Label(image=image)
     image_label.place(x=100, y=170)
 
-    temp_text = "35"+"\N{DEGREE SIGN}C"
+    temp_text = temp#+"\N{DEGREE SIGN}C" for python degress celsius sign
 
     detail_id_label = Label(root, text="RFID: ", font=('Times', 18))
     detail_id_label.place(x=500, y=180)
-    detail_id = Label(root, text="00123", font=('Times', 18))
+    detail_id = Label(root, text=rfid_code, font=('Times', 18))
     detail_id.place(x=600, y=180)
     detail_name_label = Label(root, text="Name: ", font=('Times', 18))
     detail_name_label.place(x=500, y=220)
@@ -628,12 +716,71 @@ def show_details():
     save_button = Button(root, text="Save", font=('Times', 24),command=save_details)
     save_button.place(x=895, y=480)
 
+    scan_temp_button = Button(root, text="Scan", padx=7, pady=7, font=('Times', 24),
+                                    command=scan_temp)
+    scan_temp_button.place(x=0, y=465)
+
     #for image showing
     # upload_image = Image.open(filename)
     # resize_img = upload_image.resize((250, 250))
     # img = ImageTk.PhotoImage(resize_img)
     # b2 = Label(root, image=img)  # using Button
     # b2.place(x=100, y=230)
+
+def scan_temp():
+    global temp
+    try:
+        arduino = serial.Serial(arport, timeout=5)
+        print("Connected")
+    except:
+        print("Please Check Port")
+
+    arduino.port = arport
+    i = 0
+    while i < 3:
+        counter = 0
+        while True:
+            sent = arduino.write(b'A')
+            packet = arduino.readline()
+            temp = packet.decode('utf-8')
+            if len(temp) > 3:
+                break
+            if counter == 2:
+                break
+            counter += 1
+
+        if len(temp) > 3:
+            break
+
+        if counter == 2:
+            break
+        i += 1
+
+        if len(temp) > 3:
+            break
+
+    if (temp != None and len(temp) > 3):
+        clear_temp_scan()
+
+def clear_temp_scan():
+    image_label.destroy()
+    detail_id_label.destroy()
+    detail_id.destroy()
+    detail_name_label.destroy()
+    detail_name.destroy()
+    detail_course_label.destroy()
+    detail_course.destroy()
+    detail_address_label.destroy()
+    detail_address.destroy()
+    detail_time_label.destroy()
+    detail_time.destroy()
+    detail_temp_label.destroy()
+    detail_temp.destroy()
+    detail_room_label.destroy()
+    detail_room_entry.destroy()
+    save_button.destroy()
+    scan_temp_button.destroy()
+    show_details()
 
 # button labels
 startButton = Button(root, text="Start", padx=10, pady=10, font=('Times', 24), command=clear_front_page)

@@ -47,7 +47,6 @@ def header():
     separator = ttk.Separator(root, orient='horizontal')
     separator.place(relx=0, rely=0.22, relwidth=1, relheight=1)
 
-
 def start_program():
     global rfid_pic
     global start_label
@@ -72,14 +71,12 @@ def start_program():
                                     command=clear_start_show_details)
     contact_tracing_Button.place(x=750, y=465)
 
-
 def clear_front_page():
     startButton.destroy()
     myLabel.destroy()
     logo_image.destroy()
     my_img_label.destroy()
     start_program()
-
 
 def clear_start_contact_tracing():
     start_label.destroy()
@@ -92,7 +89,7 @@ def clear_start_register():
     rfid_image_label.destroy()
     contact_tracing_Button.destroy()
     register()
-    # show_details()
+    #show_details()
 
 def clear_start_show_details():
     start_label.destroy()
@@ -107,7 +104,6 @@ def clear_contact_tracing():
     back_button.destroy()
     traced_frame1.destroy()
     start_program()
-
 
 def contact_tracing():
     global name_label
@@ -148,7 +144,6 @@ def contact_tracing():
 
     Label(myframe, text="No One").pack()
 
-
 def trace():
     global myframe
     for widgets in traced_frame1.winfo_children():
@@ -176,7 +171,6 @@ def trace():
     for i in range(50):
         Label(myframe, text=name_entry.get()).pack()
 
-
 def register():
     global enter_course_entry
     global enter_name_entry
@@ -202,7 +196,6 @@ def register():
     register_button = Button(root, text="Register", font=('Times', 24), command=register_details)
     register_button.place(x=620, y=340)
 
-
 def upload_photo():
     global img
     global filename
@@ -214,7 +207,6 @@ def upload_photo():
         img = ImageTk.PhotoImage(resize_img)
         b2 = Label(root, image=img)  # using Button
         b2.place(x=100, y=230)
-
 
 def register_details():
     if enter_name_entry.get() == "" or enter_course_entry.get() == "" or enter_address_entry.get() == "":
