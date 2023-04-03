@@ -146,7 +146,6 @@ def scan_id():
         if counter == 2:
             break
         i+=1
-
         if len(rfid_code) > 3:
             break
 
@@ -236,13 +235,15 @@ def clear_contact_traced():
 
 def trace_checker():
     global unique_id
+    global tracename
+    global tracedate
     clean = False
     if name_entry.get() == "" or date_entry.get() == "":
         messagebox.showwarning('Error', 'Please Fill in Name and Date!')
     else:
         sql_connection()
 
-        cursor.execute("SELECT id, DATE_FORMAT(transdate, '%Y-%m-%d %H:%i') AS `formated_date` from `logs` where `name`='"+name_entry.get()+"'")
+        cursor.execute("SELECT id, DATE_FORMAT(transdate, '%Y-%m-%d %H:%i') AS `formated_date`, date(transdate) from `logs` where `name`='"+name_entry.get()+"'")
 
         result = cursor.fetchall()
 
@@ -252,6 +253,8 @@ def trace_checker():
                 time = row[1]
                 if time == date_entry.get():
                     unique_id=temp_id
+                    tracename = name_entry.get()
+                    tracedate = row[2]
                     clean = True
 
             if clean:
@@ -322,7 +325,7 @@ def trace():
 
     sql_connection()
 
-    cursor.execute("SELECT id,name,epoch,room FROM logs")
+    cursor.execute("SELECT id,name,epoch,room,DATE(transdate) FROM logs")
 
     result = cursor.fetchall()
 
@@ -330,14 +333,16 @@ def trace():
     all_name = []
     all_date_int = []
     all_time_int = []
+    all_date = []
 
-    for id,name, date_int, time_int in result:
+    for id, name, date_int, time_int, transdate in result:
         all_id.append(id)
         all_name.append(name)
         all_date_int.append(date_int)
         all_time_int.append(time_int)
+        all_date.append(transdate)
 
-    dic = {'id': all_id, 'datetime': all_date_int, 'room': all_time_int, 'name': all_name}
+    dic = {'id': all_id, 'datetime': all_date_int, 'room': all_time_int, 'name': all_name, 'trans': all_date}
     df = pd.DataFrame(dic)
     connection.close()
     df.to_csv('exported.csv')
@@ -348,7 +353,7 @@ def trace():
     def get_infected_names(unique_id):
         unique_id = int(unique_id)
         name_room = df[df['id'] == int(unique_id)]['room'].item()
-        epsilon = 1
+        epsilon = 1  # parameter nga e change para sa model
         model = DBSCAN(eps=epsilon, min_samples=2, metric='haversine').fit(df[['room', 'datetime']])
         df['cluster'] = model.labels_.tolist()
 
@@ -373,9 +378,11 @@ def trace():
 
         final_infected_names = []
         for i in range(len(infected_id)):
-            if (df[df['id'] == int(infected_id[i])]['room'].item())  == name_room:
-                if not df[df['id'] == infected_id[i]]['name'].item() in final_infected_names:
-                    final_infected_names.append(df[df['id'] == infected_id[i]]['name'].item())
+            if (df[df['id'] == int(infected_id[i])]['trans'].item()) == tracedate.strftime("%Y-%m-%d"):
+                if (df[df['id'] == int(infected_id[i])]['name'].item()) != tracename:
+                    if (df[df['id'] == int(infected_id[i])]['room'].item()) == name_room:
+                        if not df[df['id'] == infected_id[i]]['name'].item() in final_infected_names:
+                            final_infected_names.append(df[df['id'] == infected_id[i]]['name'].item())
 
         return final_infected_names
 
@@ -402,9 +409,110 @@ def trace():
 
     if len(i_name) > 0:
         for i in i_name:
-            my_button = Button(myframe, text=i,width=85,font=('Times', 12),command= lambda button_text=i: click_name(button_text)).pack()
+            my_button = Button(myframe, text=i, width=85, font=('Times', 12),
+                               command=lambda button_text=i: click_name(button_text)).pack()
     else:
         Label(myframe, text="No One", font=('Times', 12)).pack()
+    # trace_button.destroy()
+    # global myframe
+    # global traced_frame
+    # global my_button
+    # global traced_frame_canvas
+    # global back_button2
+    # for widgets in traced_frame1.winfo_children():
+    #     widgets.destroy()
+    #
+    # sql_connection()
+    #
+    # cursor.execute("SELECT id,name,epoch,room,date(transdate) FROM logs")
+    #
+    # result = cursor.fetchall()
+    #
+    # all_id = []
+    # all_name = []
+    # all_date_int = []
+    # all_time_int = []
+    # all_date = []
+    #
+    # for id,name, date_int, time_int,transdate in result:
+    #     all_id.append(id)
+    #     all_name.append(name)
+    #     all_date_int.append(date_int)
+    #     all_time_int.append(time_int)
+    #     all_date.append(transdate)
+    #
+    # dic = {'id': all_id, 'datetime': all_date_int, 'room': all_time_int, 'name': all_name, 'transdate': all_date}
+    # df = pd.DataFrame(dic)
+    # connection.close()
+    # df.to_csv('exported.csv')
+    # cursor.close()
+    #
+    # df = pd.read_csv('exported.csv')
+    #
+    # def get_infected_names(unique_id):
+    #     unique_id = int(unique_id)
+    #     name_room = df[df['id'] == int(unique_id)]['room'].item()
+    #     epsilon = .8 #kani ang e change  para sa detection range
+    #     model = DBSCAN(eps=epsilon, min_samples=2, metric='haversine').fit(df[['room', 'datetime']])
+    #     df['cluster'] = model.labels_.tolist()
+    #
+    #     input_name_clusters = []
+    #     for i in range(len(df)):
+    #         if df['id'][i] == unique_id:
+    #             if df['cluster'][i] in input_name_clusters:
+    #                 pass
+    #             else:
+    #                 input_name_clusters.append(df['cluster'][i])
+    #
+    #     infected_id = []
+    #     for cluster in input_name_clusters:
+    #         if cluster != -1:
+    #             ids_in_cluster = df.loc[df['cluster'] == cluster, 'id']
+    #             for i in range(len(ids_in_cluster)):
+    #                 member_id = ids_in_cluster.iloc[i]
+    #                 if (member_id not in infected_id) and (member_id != unique_id):
+    #                     infected_id.append(member_id)
+    #                 else:
+    #                     pass
+    #
+    #     final_infected_names = []
+    #     for i in range(len(infected_id)):
+    #         print(tracedate)
+    #         print(df[df['id'] == unique_id]['transdate'].item())
+    #         if(df[df['id'] == unique_id]['transdate'].item())  != tracedate:
+    #             if (df[df['id'] == int(infected_id[i])]['name'].item())  != tracename:
+    #                 if (df[df['id'] == int(infected_id[i])]['room'].item())  == name_room:
+    #                     if not df[df['id'] == infected_id[i]]['name'].item() in final_infected_names:
+    #                         final_infected_names.append(df[df['id'] == infected_id[i]]['name'].item())
+    #
+    #     return final_infected_names
+    #
+    # i_name = get_infected_names(unique_id)
+    #
+    # traced_frame = LabelFrame(root, text="People Subject to Contact Tracing", font=('Times', 14))
+    # traced_frame_canvas = Canvas(traced_frame)
+    # traced_frame_canvas.pack(side=LEFT, fill="both", expand="yes")
+    #
+    # myscrollbar = ttk.Scrollbar(traced_frame, orient="vertical", command=traced_frame_canvas.yview)
+    # myscrollbar.pack(side=RIGHT, fill="y")
+    #
+    # traced_frame_canvas.configure(yscrollcommand=myscrollbar.set)
+    #
+    # traced_frame_canvas.bind('<Configure>',
+    #                          lambda e: traced_frame_canvas.configure(scrollregion=traced_frame_canvas.bbox('all')))
+    #
+    # myframe = Frame(traced_frame_canvas)
+    # traced_frame_canvas.create_window((0, 0), window=myframe, anchor="nw")
+    #
+    # traced_frame.place(x=100, y=180, width=800, height=300)
+    # back_button2 = Button(root, text="Back", padx=2, pady=2, font=('Times', 24), command=clear_contact_traced)
+    # back_button2.place(x=895, y=480)
+    #
+    # if len(i_name) > 0:
+    #     for i in i_name:
+    #         my_button = Button(myframe, text=i,width=85,font=('Times', 12),command= lambda button_text=i: click_name(button_text)).pack()
+    # else:
+    #     Label(myframe, text="No One", font=('Times', 12)).pack()
 
 def click_name(text):
     new = Toplevel(root)
