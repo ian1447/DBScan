@@ -704,8 +704,8 @@ def save_details():
     else:
         try:
             sql_connection()
-            sql = "INSERT INTO logs (name, transdate, epoch, room) VALUES (%s, %s, %s, %s)"
-            val = (name_text, currentDateAndTime, epoch, detail_room_entry.get())
+            sql = "INSERT INTO logs (name, transdate, epoch, room,temp) VALUES (%s, %s, %s, %s, %s)"
+            val = (name_text, currentDateAndTime, epoch, detail_room_entry.get(),temp_text)
             result = cursor.execute(sql, val)
             connection.commit()
             tkinter.messagebox.showinfo(title="Success!", message="Image and data successfully inserted!")
@@ -766,7 +766,7 @@ def show_details():
     sql_connection()
 
     from_db = []
-    cursor.execute("SELECT * FROM users") #add where clause
+    cursor.execute("SELECT * FROM users u WHERE u.rfid = '" + rfid_code + "'") #add where clause
     results = cursor.fetchall()
     connection.close()
     cursor.close()
