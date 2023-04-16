@@ -1,6 +1,6 @@
 /*
 SQLyog Ultimate v9.62 
-MySQL - 5.5.5-10.4.25-MariaDB : Database - contact_tracer
+MySQL - 5.6.37-log : Database - contact_tracer
 *********************************************************************
 */
 
@@ -26,12 +26,13 @@ CREATE TABLE `logs` (
   `transdate` datetime NOT NULL,
   `epoch` int(25) NOT NULL,
   `room` float NOT NULL,
+  `temp` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4;
 
 /*Data for the table `logs` */
 
-insert  into `logs`(`id`,`name`,`transdate`,`epoch`,`room`) values (1,'try','2021-07-07 03:52:32',1625629952,3),(2,'trial','2021-07-07 03:52:32',1625629952,3),(17,'wala','2021-07-07 04:52:32',1625633520,3),(18,'trial','2021-07-07 09:00:00',1625648400,3),(19,'walai labot','2021-07-07 08:00:00',1625648400,4),(20,'wala','2021-07-07 04:52:32',1625633520,3);
+insert  into `logs`(`id`,`name`,`transdate`,`epoch`,`room`,`temp`) values (1,'try','2021-07-07 03:52:32',1625629952,3,NULL),(2,'trial','2021-07-07 03:52:32',1625629952,3,NULL),(17,'wala','2021-07-07 04:52:32',1625633520,3,NULL),(18,'trial','2021-07-07 09:00:00',1625648400,3,NULL),(19,'walai labot','2021-07-07 08:00:00',1625648400,4,NULL),(20,'wala','2021-07-07 04:52:32',1625633520,3,NULL);
 
 /*Table structure for table `users` */
 
@@ -43,7 +44,7 @@ CREATE TABLE `users` (
   `name` varchar(255) NOT NULL,
   `course` varchar(255) NOT NULL,
   `address` varchar(255) NOT NULL,
-  `image` longblob DEFAULT NULL,
+  `image` longblob,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4;
 
